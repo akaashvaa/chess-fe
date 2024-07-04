@@ -1,6 +1,5 @@
 import './App.css'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import { Landing } from './screens/Landing.tsx'
 import { Game } from './screens/Game.tsx'
 
 function App() {
@@ -8,8 +7,7 @@ function App() {
     <div className=" flex w-screen justify-center items-center">
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/game" element={<Game />} />
+          <Route path="/" element={<Game />} />
         </Routes>
       </BrowserRouter>
     </div>

@@ -4,16 +4,20 @@ import ChessBoard from '../components/ChessBoard'
 import { useSocket } from '../hooks/useSocket'
 import { Chess } from 'chess.js'
 import chessLogo from '../assets/chesslogo.svg'
+import blackTurn from '../../public/bp.png'
+import whiteTurn from '../../public/wp.png'
 
 const INIT_GAME = 'init_game'
 export const MOVE = 'move'
 const GAME_OVER = 'game_over'
+const RESET_GAME = 'reset_game'
 
 export function Game() {
   const socket = useSocket()
   const [chess, setChess] = useState(() => new Chess())
   const [board, setBoard] = useState(chess.board())
   const [gameStarted, setGameStarted] = useState(false)
+  const [moveType, setMoveTYpe] = useState<string>('')
 
   const initializeNewChess = () => {
     const newChess = new Chess()
@@ -24,8 +28,11 @@ export function Game() {
   }
 
   const resetChessBoard = () => {
-    initializeNewChess()
-    setGameStarted(false)
+    socket?.send(
+      JSON.stringify({
+        type: RESET_GAME,
+      })
+    )
   }
 
   const handleClick = () => {
@@ -37,14 +44,25 @@ export function Game() {
     )
   }
   useEffect(() => {
-    console.log('before socket')
+    // console.log('before socket')
 
     if (!socket) return
-    console.log('after socket')
+
+    console.log('turn', chess.turn())
+    socket.onclose = () => {
+      console.log('web scoket close')
+    }
+
+    socket.onerror = (e) => {
+      console.log('onerror', e)
+    }
+    // console.log('after socket')
 
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data)
-      console.log('move from', message)
+      // console.log('move from', message)
+
+      if (moveType === '') setMoveTYpe(message.payload?.colors)
 
       switch (message.type) {
         case INIT_GAME:
@@ -66,21 +84,24 @@ export function Game() {
           setGameStarted(false)
           resetChessBoard()
           break
+        case RESET_GAME:
+          chess.reset()
+          setChess(new Chess())
+          setBoard(new Chess().board())
+          alert(
+            `The game has been reset by a player with the ${moveType} pieces.`
+          )
+
+          break
         default:
-          console.log('no match for your choice')
+          console.log('unknown message', message)
           break
       }
     }
   }, [chess, socket])
 
   return (
-    <section className="flex justify-evenly items-center w-full  flex-col md:flex-row  ">
-      <ChessBoard
-        chess={chess}
-        setBoard={setBoard}
-        board={board}
-        socket={socket}
-      />
+    <section className="flex justify-evenly py-12 items-center w-full  flex-col md:flex-row  ">
       <div className="flex z-10">
         {!gameStarted ? (
           <button
@@ -91,13 +112,45 @@ export function Game() {
             Play Game
           </button>
         ) : (
-          <div className="flex flex-col gap-10 text-center  items-center">
-            <p className="font-extrabold">
-              Chess never has been and never can be aught but a recreation
-            </p>
+          <div className="relative flex  flex-col w-full gap-4 text-center  items-center">
+            <ChessBoard
+              chess={chess}
+              setBoard={setBoard}
+              board={board}
+              socket={socket}
+            />
+            <div
+              className={`font-extrabold text-[#845B37]  border border-[#845B37] rounded-md px-10 flex justify-center items-center z-50 absolute ${
+                moveType === 'white' ? ' -bottom-12' : '-top-12 '
+              }`}
+            >
+              {moveType === '' ? (
+                'Wait for another person to join this game'
+              ) : (
+                <div className="flex justify-center items-center">
+                  You are playing with the{' '}
+                  <img
+                    src={moveType === 'white' ? whiteTurn : blackTurn}
+                    alt={`${chess.turn()}-turn`}
+                    width={50}
+                  />{' '}
+                  pieces
+                </div>
+              )}
+            </div>
+
+            <img
+              src={chess.turn() === 'w' ? whiteTurn : blackTurn}
+              alt={`${chess.turn()}-turn`}
+              width={100}
+              className={`absolute z-10 p-5 -left-32 drop-shadow-2xl border rounded-md  ${
+                chess.turn() === 'w' ? ' bottom-0' : 'top-0 '
+              }`}
+            />
+
             <button
               onClick={resetChessBoard}
-              className="bg-[#51504D] w-[400px] text-center"
+              className="absolute -left-56 z-10 top-[50%] border-2 border-[#51504d] bg-[#51504D] text-center  active:border-[#6d6c6a]"
             >
               Reset Game
             </button>
@@ -105,7 +158,7 @@ export function Game() {
         )}
       </div>
       <img
-        className="absolute drop-shadow-md mix-blend-color-burn  right-16 select-none"
+        className="absolute drop-shadow-md mix-blend-color-burn  right-[33%] select-none"
         src={chessLogo}
         alt="chesslogo"
         width={600}
